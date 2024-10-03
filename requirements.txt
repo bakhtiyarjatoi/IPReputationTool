@@ -1,13 +1,5 @@
-<<<<<<< HEAD
 pandas==1.5.3
 requests==2.31.0
 numpy==1.24.4  # Optional, only if you use numerical operations
 openpyxl==3.0.10  # Optional, for Excel file support
 tkinter  # Included with Python installations
-=======
-pandas==1.5.3
-requests==2.31.0
-numpy==1.24.4  # Optional, only if you use numerical operations
-openpyxl==3.0.10  # Optional, for Excel file support
-tkinter  # Included with Python installations
->>>>>>> f9f7ac290c5788dc5240a67e20845d2152b3fc88
