@@ -3,8 +3,8 @@ import requests
 import logging
 from tkinter import messagebox
 
-API_KEY_VT = 'afaf436c7f565e0b343102fd6fde2e00227607ce2f072e507cd6353a09bd43e0'
-API_KEY_ABUSEIPDB = '9929ee90d348c79062a0fd66ea1ede3ccf9a25f349dd445c2a89700d5500fb5a9d864e1441f50ade'
+API_KEY_VT = 'Your API Key here'
+API_KEY_ABUSEIPDB = 'Your API Key here'
 
 MAX_RETRIES = 3  # You can adjust this based on your needs
 
