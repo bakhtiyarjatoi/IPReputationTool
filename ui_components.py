@@ -57,17 +57,15 @@ class IPReputationToolUI:
 
     def load_configuration(self):
         try:
-            # Check if the config file exists in the current directory
             if not os.path.exists("config.json"):
                 raise FileNotFoundError("config.json not found in the current directory.")
 
             with open("config.json", "r") as config_file:
                 config_data = json.load(config_file)
-                # Load your configuration data here
+                self.virustotal_api_key = config_data.get("virustotal_api_key", "")
+                self.abuseipdb_api_key = config_data.get("abuseipdb_api_key", "")
         except FileNotFoundError as e:
             self.log_message(f"Error loading configuration: {e}")
-            # Optionally, initialize with default settings here
-            # self.initialize_default_settings()
         except json.JSONDecodeError:
             self.log_message("Error: Invalid JSON format in config.json.")
         except Exception as e:
@@ -153,8 +151,8 @@ class IPReputationToolUI:
     def save_configuration(self):
         try:
             config = {
-                "virustotal_api_key": self.virustotal_api_key,
-                "abuseipdb_api_key": self.abuseipdb_api_key,
+                "virustotal_api_key": getattr(self, 'virustotal_api_key', ''),
+                "abuseipdb_api_key": getattr(self, 'abuseipdb_api_key', ''),
             }
             with open("config.json", "w") as config_file:
                 json.dump(config, config_file)
@@ -162,138 +160,156 @@ class IPReputationToolUI:
             self.log_message(f"Error saving configuration: {e}")
 
     def load_input_file(self):
-        self.input_file = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("CSV files", "*.csv"), ("Excel files", "*.xlsx"), ("JSON files", "*.json")])
+        self.input_file = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), 
+                                                                ("CSV files", "*.csv"), 
+                                                                ("Excel files", "*.xls;*.xlsx"), 
+                                                                ("JSON files", "*.json")])
         if self.input_file:
             try:
+                ips = []  # Initialize an empty list to store IPs
+
+                # Handle text files
                 if self.input_file.endswith('.txt'):
-                    with open(self.input_file, 'r') as file:
-                        lines = file.readlines()
-                        self.total_ips = len(lines)
+                    # Try reading the file with UTF-8 encoding first
+                    try:
+                        with open(self.input_file, 'r', encoding='utf-8') as file:
+                            ips = file.read().splitlines()
+                    except UnicodeDecodeError:
+                        # If UTF-8 fails, fallback to ISO-8859-1 encoding
+                        with open(self.input_file, 'r', encoding='ISO-8859-1') as file:
+                            ips = file.read().splitlines()
+                # Handle CSV files
                 elif self.input_file.endswith('.csv'):
                     df = pd.read_csv(self.input_file)
-                    self.total_ips = len(df)
+                    ips = df.iloc[:, 0].tolist()  # Assuming IPs are in the first column
+                # Handle Excel files
+                elif self.input_file.endswith(('.xls', '.xlsx')):
+                    df = pd.read_excel(self.input_file)
+                    ips = df.iloc[:, 0].tolist()  # Assuming IPs are in the first column
+                # Handle JSON files
                 elif self.input_file.endswith('.json'):
                     with open(self.input_file, 'r') as file:
                         data = json.load(file)
-                        self.total_ips = len(data)
-                self.scan_info_label.config(text=f"Total IPs: {self.total_ips}")
-                self.log_message(f"Loaded {self.total_ips} IPs from {self.input_file}.")
+                        if isinstance(data, list):
+                            ips = data  # If the JSON file is a list of IPs
+                        elif isinstance(data, dict):
+                            ips = list(data.values())  # If the JSON file is a dictionary
+
+                self.total_ips = len(ips)
+                self.scanned_ips = 0
+                self.scan_results = []
+                self.log_message(f"Loaded {self.total_ips} IP(s) from {os.path.basename(self.input_file)}.")
+
             except Exception as e:
-                self.log_message(f"Error loading file: {e}")
+                self.log_message(f"Error loading input file: {e}")
 
     def start_scan(self, scan_function):
         if not self.input_file:
-            messagebox.showwarning("Warning", "Please load an input file first.")
-            return
-        if self.scan_running:
-            messagebox.showwarning("Warning", "A scan is already in progress.")
+            messagebox.showerror("Input Error", "Please load an input file first.")
             return
         self.scan_running = True
-        self.scanned_ips = 0
-        self.scan_results = []
+        self.pause_flag = False
+        self.stop_flag = False
+        self.progress['value'] = 0
+        self.scan_info_label.config(text=f"Scanned IPs: {self.scanned_ips} / {self.total_ips} | Remaining IPs: {self.total_ips - self.scanned_ips} | 0% completed")
+
+        self.virustotal_button.config(state=tk.DISABLED)
+        self.abuseipdb_button.config(state=tk.DISABLED)
         self.pause_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.NORMAL)
-        self.progress['value'] = 0
-        self.scan_info_label.config(text=f"Scanned IPs: 0 / {self.total_ips} | Remaining IPs: {self.total_ips} | 0% completed")
-        self.scan_thread = threading.Thread(target=self.scan_ips, args=(scan_function,))
+
+        self.scan_thread = threading.Thread(target=self.run_scan, args=(scan_function,))
         self.scan_thread.start()
 
-    def scan_ips(self, scan_function):
-        with open(self.input_file, 'r') as file:
-            ips = [line.strip() for line in file.readlines()]
-            self.total_ips = len(ips)
+    def run_scan(self, scan_function):
+        for ip in self.load_ips_from_file():
+            if self.stop_flag:
+                self.log_message("Scanning stopped.")
+                break
 
-            for ip in ips:
-                if self.stop_flag:
-                    self.log_message("Scan stopped.")
-                    break
+            if self.pause_flag:
                 while self.pause_flag:
                     time.sleep(1)
 
-                self.scanned_ips += 1
-                self.progress['value'] = (self.scanned_ips / self.total_ips) * 100
-                self.scan_info_label.config(text=f"Scanned IPs: {self.scanned_ips} / {self.total_ips} | Remaining IPs: {self.total_ips - self.scanned_ips} | {self.progress['value']:.2f}% completed")
+            self.log_message(f"Scanning {ip}...")
+            result = scan_function(ip)
+            self.scan_results.append(result)
+            self.scanned_ips += 1
+            
+            # Log the result for the current IP
+            self.log_message(f"Result for {ip}: {result}")  # Display the result immediately
 
-                # Call the scan function (either VirusTotal or AbuseIPDB)
-                result = scan_function(ip)
-                
-                # Check if rate limit is hit
-                if result == "Rate limit exceeded":
-                    self.log_message("WARNING - Rate limit exceeded. Pausing scans.")
-                    # Disable scan buttons
-                    self.virustotal_button.config(state=tk.DISABLED)
-                    self.abuseipdb_button.config(state=tk.DISABLED)
-                    self.stop_flag = True  # Optionally stop the scan
-                    break
+            self.progress['value'] = (self.scanned_ips / self.total_ips) * 100
+            self.scan_info_label.config(text=f"Scanned IPs: {self.scanned_ips} / {self.total_ips} | Remaining IPs: {self.total_ips - self.scanned_ips} | {int(self.progress['value'])}% completed")
 
-                self.scan_results.append(result)
-                self.log_message(f"Scanned {ip}: {result}")
+        self.scan_running = False
+        self.log_message("Scan completed.")
 
-            self.scan_running = False
-            self.pause_button.config(state=tk.DISABLED)
-            self.stop_button.config(state=tk.DISABLED)
-            self.stop_flag = False  # Reset the stop flag after scan ends
+        self.virustotal_button.config(state=tk.NORMAL)
+        self.abuseipdb_button.config(state=tk.NORMAL)
+        self.pause_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.DISABLED)
 
+
+    def load_ips_from_file(self):
+        if self.input_file.endswith('.txt'):
+            with open(self.input_file, 'r') as f:
+                return [line.strip() for line in f.readlines()]
+        elif self.input_file.endswith('.csv'):
+            df = pd.read_csv(self.input_file)
+            return df.iloc[:, 0].tolist()  # Assuming IPs are in the first column
+        elif self.input_file.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(self.input_file)
+            return df.iloc[:, 0].tolist()  # Assuming IPs are in the first column
+        elif self.input_file.endswith('.json'):
+            with open(self.input_file, 'r') as f:
+                data = json.load(f)
+                return list(data.values()) if isinstance(data, dict) else data
+        return []
 
     def pause_scanning(self):
-        self.pause_flag = not self.pause_flag
-        self.pause_button.config(text="Resume" if self.pause_flag else "Pause")
-        if not self.pause_flag:
-            self.log_message("Resuming scan...")
+        if self.scan_running:
+            self.pause_flag = not self.pause_flag
+            self.pause_button.config(text="Resume" if self.pause_flag else "Pause")
+            self.log_message("Scanning paused." if self.pause_flag else "Scanning resumed.")
 
     def stop_scanning(self):
         self.stop_flag = True
-        self.log_message("Stopping scan...")
 
     def export_results(self):
         if not self.scan_results:
-            messagebox.showwarning("Warning", "No results to export.")
+            messagebox.showerror("Export Error", "No results to export.")
             return
 
-        self.output_file = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+        self.output_file = filedialog.asksaveasfilename(defaultextension=".csv", 
+                                                        filetypes=[("CSV files", "*.csv"), 
+                                                                    ("Excel files", "*.xls;*.xlsx")])
         if self.output_file:
-            df = pd.DataFrame(self.scan_results)
-            df.to_csv(self.output_file, index=False)
-            
-            # Show a dialog box with the export confirmation message
-            messagebox.showinfo("Export Successful", f"Results exported to {self.output_file}.")
-            
-            # Log the message if needed
-            self.log_message(f"Exported results to {self.output_file}.")
-
+            try:
+                results_df = pd.DataFrame(self.scan_results)
+                results_df.to_csv(self.output_file, index=False)
+                self.log_message(f"Results exported to {os.path.basename(self.output_file)}.")
+                
+                # Show dialog after exporting
+                messagebox.showinfo("Export Successful", f"Data has been successfully exported to:\n{os.path.abspath(self.output_file)}")
+            except Exception as e:
+                self.log_message(f"Error exporting results: {e}")
+                messagebox.showerror("Export Error", f"Error exporting results: {e}")
 
     def view_history(self):
         history_window = tk.Toplevel(self.root)
         history_window.title("Scan History")
         history_window.geometry("600x400")
 
-        # Create ScrolledText widget for history
-        history_text = scrolledtext.ScrolledText(history_window, wrap=tk.WORD, font=("Consolas", 10))
+        history_text = scrolledtext.ScrolledText(history_window, wrap=tk.WORD)
         history_text.pack(expand=True, fill=tk.BOTH)
 
-        # Add a scrollbar
-        scrollbar = Scrollbar(history_window, command=history_text.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        history_text.config(yscrollcommand=scrollbar.set)
+        for result in self.scan_results:
+            history_text.insert(tk.END, f"{result}\n")
 
-        # Populate history text with scan results
-        if self.scan_results:
-            history_text.insert(tk.END, "IP Address | Result\n")
-            history_text.insert(tk.END, "-" * 50 + "\n")
-            for result in self.scan_results:
-                ip_address = result.get('ip_address', 'N/A')  # Adjust based on your result structure
-                result_str = str(result)  # You might want to format this string better
-                history_text.insert(tk.END, f"{ip_address} | {result_str}\n")
-        else:
-            history_text.insert(tk.END, "No scan results available.")
-
-        history_text.configure(state='disabled')  # Make it read-only
-
-
-    def run(self):
-        self.root.mainloop()
+        history_text.configure(state='disabled')
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = IPReputationToolUI(root)
-    app.run()
+    root.mainloop()
