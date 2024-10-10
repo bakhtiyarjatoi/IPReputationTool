@@ -17,6 +17,7 @@ class IPReputationToolUI:
         self.root = root
         self.pause_flag = False
         self.stop_flag = False
+        self.scan_thread = None  # Initialize scan_thread
         self.root.title("IP Reputation Tool")
         self.root.geometry("900x800")
         self.root.configure(bg="#f0f0f0")
@@ -220,12 +221,14 @@ class IPReputationToolUI:
         if not self.input_file:
             messagebox.showerror("Input Error", "Please load an input file first.")
             return
+        
         self.scan_running = True
         self.pause_flag = False
         self.stop_flag = False
         self.progress['value'] = 0
         self.scan_info_label.config(text=f"Scanned IPs: {self.scanned_ips} / {self.total_ips} | Remaining IPs: {self.total_ips - self.scanned_ips} | 0% completed")
 
+        # Disable buttons during scanning
         self.virustotal_button.config(state=tk.DISABLED)
         self.abuseipdb_button.config(state=tk.DISABLED)
         self.pause_button.config(state=tk.NORMAL)
@@ -240,20 +243,22 @@ class IPReputationToolUI:
                 self.log_message("Scanning stopped.")
                 break
 
-            if self.pause_flag:
-                while self.pause_flag:
-                    time.sleep(1)
+            while self.pause_flag:
+                time.sleep(1)  # Wait if paused
 
             self.log_message(f"Scanning {ip}...")
-            result = scan_function(ip)
-            self.scan_results.append(result)
-            self.scanned_ips += 1
-            
-            # Log the result for the current IP
-            self.log_message(f"Result for {ip}: {result}")  # Display the result immediately
+            try:
+                result = scan_function(ip)  # Call the appropriate scan function
+                self.scan_results.append(result)
+                self.scanned_ips += 1
+                
+                # Log the result for the current IP
+                self.log_message(f"Result for {ip}: {result}")  # Display the result immediately
+            except Exception as e:
+                self.log_message(f"Error scanning {ip}: {e}")
 
             self.progress['value'] = (self.scanned_ips / self.total_ips) * 100
-            self.scan_info_label.config(text=f"Scanned IPs: {self.scanned_ips} / {self.total_ips} | Remaining IPs: {self.total_ips - self.scanned_ips} | {int(self.progress['value'])}% completed")
+            self.scan_info_label.config(text=f"Scanned IPs: {self.scanned_ips} / {self.total_ips} | Remaining IPs: {self.total_ips - self.scanned_ips} | {self.progress['value']:.2f}% completed")
 
         self.scan_running = False
         self.log_message("Scan completed.")
@@ -286,28 +291,42 @@ class IPReputationToolUI:
             self.pause_button.config(text="Resume" if self.pause_flag else "Pause")
             self.log_message("Scanning paused." if self.pause_flag else "Scanning resumed.")
 
+
+    def on_closing(self):
+        self.stop_scanning()  # Ensure the scan is stopped
+        if self.scan_thread is not None and self.scan_thread.is_alive():  # Check if the thread is still running
+            self.scan_thread.join()  # Wait for the thread to finish
+        self.root.destroy()  # Close the application
+        
     def stop_scanning(self):
         self.stop_flag = True
+        self.log_message("Stopping scanning...")
+        # Enable/disable buttons as needed
+        self.virustotal_button.config(state=tk.NORMAL)
+        self.abuseipdb_button.config(state=tk.NORMAL)
+        self.pause_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.DISABLED)
+
+
 
     def export_results(self):
         if not self.scan_results:
-            messagebox.showerror("Export Error", "No results to export.")
+            messagebox.showwarning("Export Warning", "No results to export.")
             return
 
-        self.output_file = filedialog.asksaveasfilename(defaultextension=".csv", 
-                                                        filetypes=[("CSV files", "*.csv"), 
-                                                                    ("Excel files", "*.xls;*.xlsx")])
-        if self.output_file:
+        export_file = filedialog.asksaveasfilename(defaultextension=".csv",
+                                                    filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+        if export_file:
             try:
-                results_df = pd.DataFrame(self.scan_results)
-                results_df.to_csv(self.output_file, index=False)
-                self.log_message(f"Results exported to {os.path.basename(self.output_file)}.")
-                
-                # Show dialog after exporting
-                messagebox.showinfo("Export Successful", f"Data has been successfully exported to:\n{os.path.abspath(self.output_file)}")
+                results_df = pd.DataFrame(self.scan_results)  # Assuming scan_results is a list of dicts
+                results_df.to_csv(export_file, index=False)
+                # Show a success message after exporting
+                messagebox.showinfo("Export Success", f"Results exported to {export_file}.")
+                self.log_message(f"Results exported to {export_file}.")
             except Exception as e:
-                self.log_message(f"Error exporting results: {e}")
+                # Show an error message if there is an exception
                 messagebox.showerror("Export Error", f"Error exporting results: {e}")
+                self.log_message(f"Error exporting results: {e}")
 
     def view_history(self):
         history_window = tk.Toplevel(self.root)

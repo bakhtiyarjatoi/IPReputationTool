@@ -1,4 +1,1 @@
-{
-    "virustotal_api_key": "your_virustotal_api_key",
-    "abuseipdb_api_key": "your_abuseipdb_api_key"
-}
+{"virustotal_api_key": "your_virustotal_api_key", "abuseipdb_api_key": "your_abuseipdb_api_key"}
