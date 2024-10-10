@@ -23,16 +23,15 @@ You can install the required libraries using `pip`. Run the following command:
 
 ```bash
 pip install -r requirements.txt
-'''
 
-## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+### License
+This project is licensed under the MIT License. See the LICENSE file for details.
 
-## Contribution
+### Contribution
 We welcome contributions from the community! Please fork the repository and submit a pull request for any enhancements or bug fixes.
 
-## Configuration
-The tool uses a `config.json` file to store API keys. When you first run the tool, make sure to configure your API keys for VirusTotal and AbuseIPDB.
+### Configuration
+The tool uses a config.json file to store API keys. When you first run the tool, make sure to configure your API keys for VirusTotal and AbuseIPDB.
 
-### Edit config.json
-You can update the API keys in the `config.json` file.
+Edit config.json
+You can update the API keys in the config.json file.
