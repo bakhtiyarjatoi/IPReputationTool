@@ -37,4 +37,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
 ### Contribution
 We welcome contributions from the community! Please fork the repository and submit a pull request for any enhancements or bug fixes.
 
+Made with ❤️ for the community.
+
 
