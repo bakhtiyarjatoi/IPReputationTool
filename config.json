@@ -1,4 +1,4 @@
 {
-    "API_KEY_VT": "your_virustotal_api_key",
-    "API_KEY_ABUSEIPDB": "your_abuseipdb_api_key"
+    "virustotal_api_key": "your_virustotal_api_key",
+    "abuseipdb_api_key": "your_abuseipdb_api_key"
 }

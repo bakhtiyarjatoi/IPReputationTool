@@ -13,8 +13,8 @@ def load_api_keys():
     try:
         with open('config.json', 'r') as config_file:
             config_data = json.load(config_file)
-            api_key_vt = config_data.get('API_KEY_VT', '')
-            api_key_abuseipdb = config_data.get('API_KEY_ABUSEIPDB', '')
+            api_key_vt = config_data.get('virustotal_api_key', '')  # Use correct key name
+            api_key_abuseipdb = config_data.get('abuseipdb_api_key', '')  # Use correct key name
             
             if not api_key_vt or not api_key_abuseipdb:
                 raise ValueError("API keys are missing in config.json")
@@ -29,6 +29,7 @@ def load_api_keys():
         logging.error(str(e))
         messagebox.showerror("Error", str(e))
         return None, None
+
 
 API_KEY_VT, API_KEY_ABUSEIPDB = load_api_keys()  # Load keys from config
 

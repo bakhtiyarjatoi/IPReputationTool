@@ -60,10 +60,20 @@ class IPReputationToolUI:
 
     def load_configuration(self):
         try:
-            if not os.path.exists("config.json"):
+            # Get the directory of the script or executable
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            # Construct the path to config.json relative to the script's directory
+            config_path = os.path.join(base_path, "config.json")
+
+            # Print the path to verify where the program is looking for config.json
+            print(f"Looking for config at: {config_path}")
+
+            # Check if the config file exists
+            if not os.path.exists(config_path):
                 raise FileNotFoundError("config.json not found in the current directory.")
 
-            with open("config.json", "r") as config_file:
+            # Load the configuration
+            with open(config_path, "r") as config_file:
                 config_data = json.load(config_file)
                 self.virustotal_api_key = config_data.get("virustotal_api_key", "")
                 self.abuseipdb_api_key = config_data.get("abuseipdb_api_key", "")
