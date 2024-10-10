@@ -1,14 +1,43 @@
+# This software is licensed under the MIT License.
+# See the LICENSE file for details.
+
+
 import time
 import requests
 import logging
+import json
 from tkinter import messagebox
 
-API_KEY_VT = 'Your API Key here'
-API_KEY_ABUSEIPDB = 'Your API Key here'
+# Load API keys from config.json
+def load_api_keys():
+    try:
+        with open('config.json', 'r') as config_file:
+            config_data = json.load(config_file)
+            api_key_vt = config_data.get('API_KEY_VT', '')
+            api_key_abuseipdb = config_data.get('API_KEY_ABUSEIPDB', '')
+            
+            if not api_key_vt or not api_key_abuseipdb:
+                raise ValueError("API keys are missing in config.json")
+            
+            return api_key_vt, api_key_abuseipdb
+    
+    except FileNotFoundError:
+        logging.error("config.json file not found.")
+        messagebox.showerror("Error", "config.json file not found.")
+        return None, None
+    except ValueError as e:
+        logging.error(str(e))
+        messagebox.showerror("Error", str(e))
+        return None, None
+
+API_KEY_VT, API_KEY_ABUSEIPDB = load_api_keys()  # Load keys from config
 
 MAX_RETRIES = 3  # You can adjust this based on your needs
 
 def virustotal_scan(ip, retries=0):
+    if not API_KEY_VT:  # Check if API keys are loaded
+        return None
+    
     url = f'https://www.virustotal.com/api/v3/ip_addresses/{ip}'
     headers = {
         'x-apikey': API_KEY_VT
@@ -65,24 +94,10 @@ def virustotal_scan(ip, retries=0):
         logging.error(f"Error querying VirusTotal for {ip}: {e}")
         return None
 
-    except requests.RequestException as e:
-        if response.status_code == 429:  # Rate limit exceeded
-            if retries < MAX_RETRIES:
-                logging.warning(f"VirusTotal rate limit exceeded. Retrying in 60 seconds... (Attempt {retries + 1}/{MAX_RETRIES})")
-                print ("VirusTotal rate limit exceeded. Retrying in 60 seconds... ") 
-                time.sleep(60)  # Wait 60 seconds before retrying
-                return virustotal_scan(ip, retries + 1)  # Retry the scan
-
-            else:
-                # Maximum retries reached, log and show a warning to the user
-                logging.error(f"VirusTotal rate limit exceeded. Maximum retries ({MAX_RETRIES}) reached. Skipping {ip}.")
-                messagebox.showwarning("Rate Limit Exceeded", f"VirusTotal API rate limit exceeded. Skipping {ip} after {MAX_RETRIES} attempts.")
-                return None
-
-        logging.error(f"Error querying VirusTotal for {ip}: {e}")
+def abuseipdb_scan(ip, retries=0):
+    if not API_KEY_ABUSEIPDB:  # Check if API keys are loaded
         return None
     
-def abuseipdb_scan(ip, retries=0):
     url = f'https://api.abuseipdb.com/api/v2/check'
     headers = {
         'Key': API_KEY_ABUSEIPDB,

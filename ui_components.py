@@ -1,3 +1,6 @@
+# This software is licensed under the MIT License.
+# See the LICENSE file for details.
+
 import tkinter as tk
 from tkinter import ttk
 from tkinter import Scrollbar

@@ -1,2 +1,4 @@
-
-{"virustotal_api_key": "Your API Key here", "abuseipdb_api_key": "Your API Key here"}
+{
+    "API_KEY_VT": "your_virustotal_api_key",
+    "API_KEY_ABUSEIPDB": "your_abuseipdb_api_key"
+}
