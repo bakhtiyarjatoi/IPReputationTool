@@ -109,7 +109,7 @@ class IPReputationToolUI:
         self.logs_text.pack(pady=10, padx=20)
         self.logs_text.configure(state='disabled')
 
-        footer = tk.Label(self.root, text="Tool made with ❤️. All rights reserved.", font=("Arial", 10, "italic"), bg="#f0f0f0")
+        footer = tk.Label(self.root, text="Tool made with ❤️ by Bakhtiyar Ahmad. All rights reserved.", font=("Arial", 10, "italic"), bg="#f0f0f0")
         footer.pack(side=tk.BOTTOM, pady=10)
 
     def create_api_key_frame(self):
