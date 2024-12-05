@@ -307,8 +307,6 @@ class IPReputationToolUI:
         self.pause_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.DISABLED)
 
-
-
     def export_results(self):
         if not self.scan_results:
             messagebox.showwarning("Export Warning", "No results to export.")
