@@ -312,11 +312,18 @@ class IPReputationToolUI:
             messagebox.showwarning("Export Warning", "No results to export.")
             return
 
+        # Validate that all items in self.scan_results are dictionaries
+        valid_results = [result for result in self.scan_results if isinstance(result, dict)]
+        if not valid_results:
+            messagebox.showerror("Export Error", "No valid results to export. Please ensure the scan is complete.")
+            self.log_message("Export failed: No valid results.")
+            return
+
         export_file = filedialog.asksaveasfilename(defaultextension=".csv",
-                                                    filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+                                                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
         if export_file:
             try:
-                results_df = pd.DataFrame(self.scan_results)  # Assuming scan_results is a list of dicts
+                results_df = pd.DataFrame(valid_results)  # Convert valid results to a DataFrame
                 results_df.to_csv(export_file, index=False)
                 # Show a success message after exporting
                 messagebox.showinfo("Export Success", f"Results exported to {export_file}.")
@@ -339,7 +346,4 @@ class IPReputationToolUI:
 
         history_text.configure(state='disabled')
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = IPReputationToolUI(root)
-    root.mainloop()
+
