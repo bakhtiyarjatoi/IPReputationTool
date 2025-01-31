@@ -312,8 +312,9 @@ class IPReputationToolUI:
             messagebox.showwarning("Export Warning", "No results to export.")
             return
 
-        # Validate that all items in self.scan_results are dictionaries
-        valid_results = [result for result in self.scan_results if isinstance(result, dict)]
+        # Filter out None values and validate that all items in self.scan_results are dictionaries
+        valid_results = [result for result in self.scan_results if result is not None and isinstance(result, dict)]
+
         if not valid_results:
             messagebox.showerror("Export Error", "No valid results to export. Please ensure the scan is complete.")
             self.log_message("Export failed: No valid results.")
@@ -323,8 +324,10 @@ class IPReputationToolUI:
                                                 filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
         if export_file:
             try:
-                results_df = pd.DataFrame(valid_results)  # Convert valid results to a DataFrame
+                # Convert valid results to a DataFrame
+                results_df = pd.DataFrame(valid_results)
                 results_df.to_csv(export_file, index=False)
+                
                 # Show a success message after exporting
                 messagebox.showinfo("Export Success", f"Results exported to {export_file}.")
                 self.log_message(f"Results exported to {export_file}.")
